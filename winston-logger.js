@@ -64,7 +64,7 @@ class WinstonLogger extends BaseLogger{
         this.logger.on('finish', this.onFinish.bind(this));
 
         if(opts.console && opts.console.enabled){
-            this.addConsole()
+            this.addConsole();
         }
 
         if(opts.file && opts.file.enabled){
@@ -80,6 +80,11 @@ class WinstonLogger extends BaseLogger{
         }
 
         this.notifierMap = new Map();
+    }
+
+    setGracefulShutdownHandler(gracefulShutdownHandler) {
+        this.logger.exitOnError = false;
+        this.gracefulShutdownHandler = gracefulShutdownHandler;
     }
 
     /**
@@ -104,7 +109,8 @@ class WinstonLogger extends BaseLogger{
         else
             config.subject = util.format('[ERR] %s - {{msg}}', process.env.NODE_ENV);
 
-        this.logger.add(new transports.Mail(config));
+        this.mailTransport = new transports.Mail(config);
+        this.logger.add(this.mailTransport);
     }
 
     addConsole(){
@@ -178,8 +184,12 @@ class WinstonLogger extends BaseLogger{
         if (this.logger.writable === false) {
             return;
         }
-        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. Error: ', err);
-        this.logger.end();
+        const gracefulShutdownEnabled = this.gracefulShutdownHandler != null;
+        if(err.message === 'timedout while connecting to smtp server') { // smtp error
+            this.logger.remove(this.mailTransport);
+        }
+        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. (gracefulShutdown:%s) Error: ', gracefulShutdownEnabled, err);
+        gracefulShutdownEnabled ? this.gracefulShutdownHandler() : this.logger.end();
     }
 
     /**
@@ -190,8 +200,9 @@ class WinstonLogger extends BaseLogger{
         if (this.logger.writable === false) {
             return;
         }
-        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. Error: ', err);
-        this.logger.end();
+        const gracefulShutdownEnabled = this.gracefulShutdownHandler != null;
+        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. (gracefulShutdown:%s) Error: ', gracefulShutdownEnabled, err);
+        gracefulShutdownEnabled ? this.gracefulShutdownHandler() : this.logger.end();
     }
 
     onFinish() {
@@ -256,7 +267,6 @@ class WinstonLogger extends BaseLogger{
 }
 
 const myFormat = printf(({ level, message, label, timestamp}) => {
-
     return `${timestamp} [${level}] ${message}`;
 });
 
