@@ -187,6 +187,7 @@ class WinstonLogger extends BaseLogger{
         const gracefulShutdownEnabled = this.gracefulShutdownHandler != null;
         if(err.message === 'timedout while connecting to smtp server') { // smtp error
             this.logger.remove(this.mailTransport);
+            this.mailTransport = null;
         }
         this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. (gracefulShutdown:%s) Error: ', gracefulShutdownEnabled, err);
         gracefulShutdownEnabled ? this.gracefulShutdownHandler() : this.logger.end();

@@ -301,27 +301,31 @@ describe('Winston Logger', function () {
 
         });
 
-        it.only('7. Should close on error calling smtp server', function () {
-            // tk.freeze('2019-10-10T15:00:00.000Z');
+        it('7. Timeout connecting to smtp error will trigger uncaught exception. Logger should catch, disable mail transport and trigger graceful shutdown', function () {
             let logger = createMailLogger();
+            let emergStub = getEmergencyStub();
+            let gracefulShutdownHandler = sinon.stub();
+            logger.setGracefulShutdownHandler(gracefulShutdownHandler);
 
-            let emergStub = sinon.stub(logger.logger, 'emerg').callsFake(() => {
-                throw new Error('test');
-            });
+            expect(logger.mailTransport).to.not.eql(null);
+            logger.onUnhandledException(new Error('timedout while connecting to smtp server'));
+            expect(logger.mailTransport).to.eql(null);
+            sinon.assert.calledOnce(emergStub);
+            sinon.assert.calledOnce(gracefulShutdownHandler);
+            emergStub.restore();
+        });
 
-            // Mock up hostname
-            // logger.notify('Subject').hostname = '_HOSTNAME_';
+        it('8. Uncaught exception should trigger logger.end() if no gracefulShutdownHandler has been set', function () {
+            let logger = createMailLogger();
+            let emergStub = getEmergencyStub();
+            let endStub = sinon.stub(logger.logger, 'end').resolves();
 
-            logger.notify('Subject').steps(0, 1).msg('Send Email');
+            logger.onUnhandledException(new Error('timedout while connecting to smtp server'));
 
-            return Promise.delay(10000)
-            .then(() => {
-                expect(emergStub.calledOnce).to.equals(true);
-                // expect(smtpStub.args[0][0].text).to.equals('Subject\n<br>_HOSTNAME_<br>Notifier start:0 each:1 count:0<br><pre>Send Email </pre>');
-            })
-            .finally(() => {
-                // smtpStub.restore();
-            });
+            sinon.assert.calledOnce(endStub);
+            sinon.assert.calledOnce(emergStub);
+            endStub.restore();
+            emergStub.restore();
         });
 
 
