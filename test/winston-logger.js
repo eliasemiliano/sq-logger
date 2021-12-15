@@ -304,15 +304,18 @@ describe('Winston Logger', function () {
         it('7. Timeout connecting to smtp error will trigger uncaught exception. Logger should catch, disable mail transport and trigger graceful shutdown', function () {
             let logger = createMailLogger();
             let emergStub = getEmergencyStub();
+            let endStub = sinon.stub(logger.logger, 'end').resolves();
             let gracefulShutdownHandler = sinon.stub();
             logger.setGracefulShutdownHandler(gracefulShutdownHandler);
 
             expect(logger.mailTransport).to.not.eql(null);
             logger.onUnhandledException(new Error('timedout while connecting to smtp server'));
             expect(logger.mailTransport).to.eql(null);
+            sinon.assert.notCalled(endStub);
             sinon.assert.calledOnce(emergStub);
             sinon.assert.calledOnce(gracefulShutdownHandler);
             emergStub.restore();
+            endStub.restore();
         });
 
         it('8. Uncaught exception should trigger logger.end() if no gracefulShutdownHandler has been set', function () {
@@ -324,6 +327,7 @@ describe('Winston Logger', function () {
 
             sinon.assert.calledOnce(endStub);
             sinon.assert.calledOnce(emergStub);
+            expect(logger.gracefulShutdownHandler).to.be.undefined;
             endStub.restore();
             emergStub.restore();
         });
