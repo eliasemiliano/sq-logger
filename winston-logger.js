@@ -195,8 +195,8 @@ class WinstonLogger extends BaseLogger{
             this.logger.remove(this.mailTransport);
             this.mailTransport = null;
         }
-        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. (gracefulShutdown:%s) Error: ', customShutdownEnabled, err);
-        customShutdownEnabled ? this.shutdownHandler() : this.logger.end();
+        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. (customShutdown:%s) Error: ', customShutdownEnabled, err);
+        customShutdownEnabled ? this.shutdownHandler('Unhandled Exception') : this.logger.end();
     }
 
     /**
@@ -208,8 +208,8 @@ class WinstonLogger extends BaseLogger{
             return;
         }
         const customShutdownEnabled = this.shutdownHandler != null;
-        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. (gracefulShutdown:%s) Error: ', customShutdownEnabled, err);
-        customShutdownEnabled ? this.shutdownHandler() : this.logger.end();
+        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. (customShutdown:%s) Error: ', customShutdownEnabled, err);
+        customShutdownEnabled ? this.shutdownHandler('Unhandled Rejection') : this.logger.end();
     }
 
     onFinish() {
