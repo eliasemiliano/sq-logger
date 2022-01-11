@@ -42,6 +42,7 @@ class WinstonLogger extends BaseLogger{
      * @param {String}   opts.mail.smtp.port
      * @param {String}   opts.mail.smtp.username
      * @param {String}   opts.mail.smtp.password
+     * @param {Function} opts.shutdownHandler
      */
     constructor(opts){
         opts = opts || {};
@@ -75,6 +76,11 @@ class WinstonLogger extends BaseLogger{
             }
         }
 
+        if(opts.shutdownHandler) {
+            this.logger.exitOnError = false;
+            this.shutdownHandler = opts.shutdownHandler;
+        }
+
         if(opts.mail && opts.mail.enabled){
             this.addMail(opts.mail);
         }
@@ -82,9 +88,9 @@ class WinstonLogger extends BaseLogger{
         this.notifierMap = new Map();
     }
 
-    setGracefulShutdownHandler(gracefulShutdownHandler) {
+    setShutdownHandler(shutdownHandler) {
         this.logger.exitOnError = false;
-        this.gracefulShutdownHandler = gracefulShutdownHandler;
+        this.shutdownHandler = shutdownHandler;
     }
 
     /**
@@ -184,13 +190,13 @@ class WinstonLogger extends BaseLogger{
         if (this.logger.writable === false) {
             return;
         }
-        const gracefulShutdownEnabled = this.gracefulShutdownHandler != null;
+        const customShutdownEnabled = this.shutdownHandler != null;
         if(err.message === 'timedout while connecting to smtp server') { // smtp error
             this.logger.remove(this.mailTransport);
             this.mailTransport = null;
         }
-        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. (gracefulShutdown:%s) Error: ', gracefulShutdownEnabled, err);
-        gracefulShutdownEnabled ? this.gracefulShutdownHandler() : this.logger.end();
+        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. (gracefulShutdown:%s) Error: ', customShutdownEnabled, err);
+        customShutdownEnabled ? this.shutdownHandler() : this.logger.end();
     }
 
     /**
@@ -201,9 +207,9 @@ class WinstonLogger extends BaseLogger{
         if (this.logger.writable === false) {
             return;
         }
-        const gracefulShutdownEnabled = this.gracefulShutdownHandler != null;
-        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. (gracefulShutdown:%s) Error: ', gracefulShutdownEnabled, err);
-        gracefulShutdownEnabled ? this.gracefulShutdownHandler() : this.logger.end();
+        const customShutdownEnabled = this.shutdownHandler != null;
+        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. (gracefulShutdown:%s) Error: ', customShutdownEnabled, err);
+        customShutdownEnabled ? this.shutdownHandler() : this.logger.end();
     }
 
     onFinish() {

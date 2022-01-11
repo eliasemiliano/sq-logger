@@ -305,15 +305,15 @@ describe('Winston Logger', function () {
             let logger = createMailLogger();
             let emergStub = getEmergencyStub();
             let endStub = sinon.stub(logger.logger, 'end').resolves();
-            let gracefulShutdownHandler = sinon.stub();
-            logger.setGracefulShutdownHandler(gracefulShutdownHandler);
+            let shutdownHandler = sinon.stub();
+            logger.setShutdownHandler(shutdownHandler);
 
             expect(logger.mailTransport).to.not.eql(null);
             logger.onUnhandledException(new Error('timedout while connecting to smtp server'));
             expect(logger.mailTransport).to.eql(null);
             sinon.assert.notCalled(endStub);
             sinon.assert.calledOnce(emergStub);
-            sinon.assert.calledOnce(gracefulShutdownHandler);
+            sinon.assert.calledOnce(shutdownHandler);
             emergStub.restore();
             endStub.restore();
         });
@@ -327,7 +327,7 @@ describe('Winston Logger', function () {
 
             sinon.assert.calledOnce(endStub);
             sinon.assert.calledOnce(emergStub);
-            expect(logger.gracefulShutdownHandler).to.be.undefined;
+            expect(logger.shutdownHandler).to.be.undefined;
             endStub.restore();
             emergStub.restore();
         });
