@@ -42,6 +42,7 @@ class WinstonLogger extends BaseLogger{
      * @param {String}   opts.mail.smtp.port
      * @param {String}   opts.mail.smtp.username
      * @param {String}   opts.mail.smtp.password
+     * @param {Function} opts.shutdownHandler
      */
     constructor(opts){
         opts = opts || {};
@@ -64,7 +65,7 @@ class WinstonLogger extends BaseLogger{
         this.logger.on('finish', this.onFinish.bind(this));
 
         if(opts.console && opts.console.enabled){
-            this.addConsole()
+            this.addConsole();
         }
 
         if(opts.file && opts.file.enabled){
@@ -75,11 +76,21 @@ class WinstonLogger extends BaseLogger{
             }
         }
 
+        if(opts.shutdownHandler) {
+            this.logger.exitOnError = false;
+            this.shutdownHandler = opts.shutdownHandler;
+        }
+
         if(opts.mail && opts.mail.enabled){
             this.addMail(opts.mail);
         }
 
         this.notifierMap = new Map();
+    }
+
+    setShutdownHandler(shutdownHandler) {
+        this.logger.exitOnError = false;
+        this.shutdownHandler = shutdownHandler;
     }
 
     /**
@@ -104,7 +115,8 @@ class WinstonLogger extends BaseLogger{
         else
             config.subject = util.format('[ERR] %s - {{msg}}', process.env.NODE_ENV);
 
-        this.logger.add(new transports.Mail(config));
+        this.mailTransport = new transports.Mail(config);
+        this.logger.add(this.mailTransport);
     }
 
     addConsole(){
@@ -178,8 +190,13 @@ class WinstonLogger extends BaseLogger{
         if (this.logger.writable === false) {
             return;
         }
-        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. Error: ', err);
-        this.logger.end();
+        const customShutdownEnabled = this.shutdownHandler != null;
+        if(err.message === 'timedout while connecting to smtp server') { // smtp error
+            this.logger.remove(this.mailTransport);
+            this.mailTransport = null;
+        }
+        this.notify('Unhandled Exception').steps(0, 1).msg('Unhandled Exception. (customShutdown:%s) Error: ', customShutdownEnabled, err);
+        customShutdownEnabled ? this.shutdownHandler('Unhandled Exception') : this.logger.end();
     }
 
     /**
@@ -190,8 +207,9 @@ class WinstonLogger extends BaseLogger{
         if (this.logger.writable === false) {
             return;
         }
-        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. Error: ', err);
-        this.logger.end();
+        const customShutdownEnabled = this.shutdownHandler != null;
+        this.notify('Unhandled Rejection').steps(0, 1).msg('Unhandled Rejection. (customShutdown:%s) Error: ', customShutdownEnabled, err);
+        customShutdownEnabled ? this.shutdownHandler('Unhandled Rejection') : this.logger.end();
     }
 
     onFinish() {
@@ -256,7 +274,6 @@ class WinstonLogger extends BaseLogger{
 }
 
 const myFormat = printf(({ level, message, label, timestamp}) => {
-
     return `${timestamp} [${level}] ${message}`;
 });
 

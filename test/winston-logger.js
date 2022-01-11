@@ -15,7 +15,7 @@ describe('Winston Logger', function () {
 
     after(() => {
         tk.reset();
-    })
+    });
 
     describe('Test File Log. Use fs to read output files (include rotation)', () => {
 
@@ -24,7 +24,7 @@ describe('Winston Logger', function () {
         beforeEach(()=>{
             return fsExtra.remove(DIR)
             .then(() => {
-                return fsExtra.ensureDir(DIR)
+                return fsExtra.ensureDir(DIR);
             })
             .then(()=>{
                 Logger.reset();
@@ -63,19 +63,19 @@ describe('Winston Logger', function () {
                     info: fsExtra.readFile(DIR + '/info-2019-10-10.log'),
                     error: fsExtra.readFile(DIR + '/error-2019-10-10.log'),
                     emerg: fsExtra.readFile(DIR + '/emerg-2019-10-10.log'),
-                })
+                });
             })
             .then((res) => {
                 expect(res.debug.toString()).to.equals(DEBUG_LINE + INFO_LINE + ERROR_LINE + EMERG_LINE);
                 expect(res.info.toString()).to.equals(INFO_LINE + ERROR_LINE + EMERG_LINE);
                 expect(res.error.toString()).to.equals(ERROR_LINE + EMERG_LINE);
                 expect(res.emerg.toString()).to.equals(EMERG_LINE);
-            })
+            });
 
         });
 
 
-        it('2. Log in debug leevel 100 char per line. Expect two files are created. One with 50KB (51.3KB exactly) and the other one with less than 50K', ()=>{
+        it('2. Log in debug level 100 char per line. Expect two files are created. One with 50KB (51.3KB exactly) and the other one with less than 50K', ()=>{
             tk.freeze('2019-10-10T15:00:00.000Z');
             let logger = Logger.create({
                 file:{
@@ -98,13 +98,13 @@ describe('Winston Logger', function () {
                     debugFile:fsExtra.readFile(DIR + '/debug-2019-10-10.log'),
                     fsStats:fsExtra.stat(DIR + '/debug-2019-10-10.log')
 
-                })
+                });
             })
             .then((props) =>{
                 let debugFiles = [];
                 for(let i=0; i<props.fileList.length; i++){
                     if(props.fileList[i].startsWith('debug-'))
-                        debugFiles.push(props.fileList[i])
+                        debugFiles.push(props.fileList[i]);
                 }
                 expect(debugFiles).to.length(2);
                 expect(debugFiles).to.eqls([
@@ -118,11 +118,11 @@ describe('Winston Logger', function () {
 
         });
 
-    })
+    });
 
     describe('Test Notify Log. Sinon on SMTP/Emergency', () => {
         const winstonMail = require('winston-mail');
-        const emailjs = require('emailjs')
+        const emailjs = require('emailjs');
 
         beforeEach(() => {
             Logger.reset();
@@ -148,7 +148,7 @@ describe('Winston Logger', function () {
             })
             .finally(() => {
                 smtpStub.restore();
-            })
+            });
         });
 
         it('2. Expect two message with startOn 0 each 0 generates one emergency email.', function () {
@@ -170,7 +170,7 @@ describe('Winston Logger', function () {
             })
             .finally(() => {
                 emergStub.restore();
-            })
+            });
         });
 
         it('3. Expect three messages. First and third generates emergency email. Second one is error log.', function () {
@@ -198,7 +198,7 @@ describe('Winston Logger', function () {
             .finally(() => {
                 emergStub.restore();
                 errorStub.restore();
-            })
+            });
         });
 
         it('4. Run Notify with Start 5 each 5, and send 15 messages. Expect only 2 Emergency were sent. ', () =>{
@@ -229,7 +229,7 @@ describe('Winston Logger', function () {
             .finally(() => {
                 emergStub.restore();
                 errorStub.restore();
-            })
+            });
 
 
         });
@@ -263,7 +263,7 @@ describe('Winston Logger', function () {
                 emergStub.restore();
                 errorStub.restore();
                 tk.reset();
-            })
+            });
 
 
         });
@@ -296,9 +296,40 @@ describe('Winston Logger', function () {
             .finally(() => {
                 emergStub.restore();
                 errorStub.restore();
-            })
+            });
 
 
+        });
+
+        it('7. Timeout connecting to smtp error will trigger uncaught exception. Logger should catch, disable mail transport and trigger graceful shutdown', function () {
+            let logger = createMailLogger();
+            let emergStub = getEmergencyStub();
+            let endStub = sinon.stub(logger.logger, 'end').resolves();
+            let shutdownHandler = sinon.stub();
+            logger.setShutdownHandler(shutdownHandler);
+
+            expect(logger.mailTransport).to.not.eql(null);
+            logger.onUnhandledException(new Error('timedout while connecting to smtp server'));
+            expect(logger.mailTransport).to.eql(null);
+            sinon.assert.notCalled(endStub);
+            sinon.assert.calledOnce(emergStub);
+            sinon.assert.calledOnce(shutdownHandler);
+            emergStub.restore();
+            endStub.restore();
+        });
+
+        it('8. Uncaught exception should trigger logger.end() if no gracefulShutdownHandler has been set', function () {
+            let logger = createMailLogger();
+            let emergStub = getEmergencyStub();
+            let endStub = sinon.stub(logger.logger, 'end').resolves();
+
+            logger.onUnhandledException(new Error('timedout while connecting to smtp server'));
+
+            sinon.assert.calledOnce(endStub);
+            sinon.assert.calledOnce(emergStub);
+            expect(logger.shutdownHandler).to.be.undefined;
+            endStub.restore();
+            emergStub.restore();
         });
 
 
@@ -328,7 +359,7 @@ describe('Winston Logger', function () {
             });
         }
 
-    })
+    });
 
 
 
